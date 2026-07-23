@@ -15,7 +15,7 @@ fi
 sudo systemctl enable --now NetworkManager
 
 # Basic tooling used by the rest of this script / general sanity.
-sudo dnf install -y git curl
+sudo dnf install -y git curl unzip
 
 echo "== Enabling COPRs =="
 sudo dnf copr enable -y ashbuk/Hyprland-Fedora
@@ -33,12 +33,27 @@ sudo dnf install -y \
     swaybg hypridle hyprlock \
     quickshell \
     qt6-qtsvg qt6-qtimageformats qt6-qtmultimedia qt6-qt5compat \
-    jetbrainsmono-nerd-fonts \
     qt6ct qt5ct kvantum \
     plasma-integration plasma-breeze plasma-breeze-qt6 qqc2-breeze-style breeze-icon-theme breeze-gtk \
     sddm sddm-breeze \
     pipewire-utils \
     NetworkManager-wifi bluez
+
+echo "== Installing JetBrainsMono Nerd Font =="
+# Not installed via dnf: nerd-fonts package availability varies between
+# Fedora editions (e.g. present on Workstation, absent on this Server repo
+# set), so a direct download is the portable path across editions.
+if [ ! -d ~/.local/share/fonts/JetBrainsMonoNerd ]; then
+    mkdir -p ~/.local/share/fonts
+    cd ~/.local/share/fonts
+    curl -fLO https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip
+    unzip -q JetBrainsMono.zip -d JetBrainsMonoNerd
+    rm JetBrainsMono.zip
+    fc-cache -f
+    cd - > /dev/null
+else
+    echo "Already installed, skipping."
+fi
 
 echo "== Enabling system services =="
 sudo systemctl enable sddm
