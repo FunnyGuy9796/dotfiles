@@ -21,9 +21,15 @@ echo "== Enabling COPRs =="
 sudo dnf copr enable -y ashbuk/Hyprland-Fedora
 sudo dnf copr enable -y errornointernet/quickshell
 
-echo "== Installing packages =="
+echo "== Installing Hyprland core =="
+# Installed separately from the rest: xdg-desktop-portal-hyprland can pin to
+# an exact hyprland version that lags behind the COPR's latest build, which
+# causes a same-transaction conflict if bundled with the bulk install below.
+sudo dnf install -y hyprland
+sudo dnf install -y xdg-desktop-portal-hyprland
+
+echo "== Installing remaining packages =="
 sudo dnf install -y \
-    hyprland xdg-desktop-portal-hyprland \
     swaybg hypridle hyprlock \
     quickshell \
     qt6-qtsvg qt6-qtimageformats qt6-qtmultimedia qt6-qt5compat \
