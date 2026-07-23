@@ -1276,7 +1276,7 @@ ShellRoot {
         id: clipboard
         visible: false
         implicitWidth: 400
-        implicitHeight: 400
+        implicitHeight: 440
         title: "clipboard"
 
         HyprlandFocusGrab {
@@ -1291,10 +1291,14 @@ ShellRoot {
                 visible = false
             } else {
                 launcher.visible = false
-                listProc.lines = []
-                listProc.running = true
+                refresh()
                 visible = true
             }
+        }
+
+        function refresh() {
+            listProc.lines = []
+            listProc.running = true
         }
 
         IpcHandler {
@@ -1315,9 +1319,34 @@ ShellRoot {
             clipboard.visible = false
         }
 
+        function deleteEntry(entry) {
+            deleteProc.command = ["bash", "-c", "cliphist delete"]
+            deleteProc.stdinEnabled = true
+            deleteProc.running = true
+            deleteProc.write(entry.raw + "\n")
+            deleteProc.stdinEnabled = false
+        }
+
+        function clearAll() {
+            wipeProc.running = true
+        }
+
         Process {
             id: copyProc
             running: false
+        }
+
+        Process {
+            id: deleteProc
+            running: false
+            onExited: clipboard.refresh()
+        }
+
+        Process {
+            id: wipeProc
+            command: ["cliphist", "wipe"]
+            running: false
+            onExited: clipboard.refresh()
         }
 
         Process {
@@ -1348,57 +1377,106 @@ ShellRoot {
             color: "#111111"
             radius: 8
 
-            ListView {
-                id: clipList
+            Column {
                 anchors.fill: parent
                 anchors.margins: 10
-                clip: true
-                model: clipboard.entries
-                currentIndex: 0
-                focus: clipboard.visible
+                spacing: 8
 
-                highlight: Rectangle { color: "#3b4261"; radius: 4 }
-                highlightMoveDuration: 100
-
-                Keys.onPressed: event => {
-                    if (event.key === Qt.Key_Down) {
-                        currentIndex = Math.min(currentIndex + 1, count - 1)
-                        event.accepted = true
-                    } else if (event.key === Qt.Key_Up) {
-                        currentIndex = Math.max(currentIndex - 1, 0)
-                        event.accepted = true
-                    } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                        const entry = clipboard.entries[currentIndex]
-
-                        if (entry)
-                            clipboard.selectEntry(entry)
-
-                        event.accepted = true
-                    } else if (event.key === Qt.Key_Escape) {
-                        clipboard.visible = false
-                        event.accepted = true
-                    }
-                }
-
-                delegate: Rectangle {
-                    width: clipList.width
-                    height: 36
-                    color: "transparent"
+                Rectangle {
+                    width: parent.width
+                    height: 30
+                    radius: 4
+                    color: "#333333"
 
                     Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        anchors.right: parent.right
-                        anchors.rightMargin: 10
-                        elide: Text.ElideRight
-                        text: modelData.preview
+                        anchors.centerIn: parent
+                        text: "Clear All"
                         color: "white"
+                        font.pixelSize: 12
                     }
 
                     MouseArea {
                         anchors.fill: parent
-                        onClicked: clipboard.selectEntry(modelData)
+                        onClicked: clipboard.clearAll()
+                    }
+                }
+
+                ListView {
+                    id: clipList
+                    width: parent.width
+                    height: parent.height - 38
+                    clip: true
+                    model: clipboard.entries
+                    currentIndex: 0
+                    focus: clipboard.visible
+
+                    highlight: Rectangle { color: "#3b4261"; radius: 4 }
+                    highlightMoveDuration: 100
+
+                    Keys.onPressed: event => {
+                        if (event.key === Qt.Key_Down) {
+                            currentIndex = Math.min(currentIndex + 1, count - 1)
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Up) {
+                            currentIndex = Math.max(currentIndex - 1, 0)
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                            const entry = clipboard.entries[currentIndex]
+
+                            if (entry)
+                                clipboard.selectEntry(entry)
+
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Delete) {
+                            const entry = clipboard.entries[currentIndex]
+
+                            if (entry)
+                                clipboard.deleteEntry(entry)
+
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Escape) {
+                            clipboard.visible = false
+                            event.accepted = true
+                        }
+                    }
+
+                    delegate: Rectangle {
+                        width: clipList.width
+                        height: 36
+                        color: "transparent"
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.right: deleteBtn.left
+                            anchors.rightMargin: 6
+                            elide: Text.ElideRight
+                            text: modelData.preview
+                            color: "white"
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.rightMargin: 30
+                            onClicked: clipboard.selectEntry(modelData)
+                        }
+
+                        Text {
+                            id: deleteBtn
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
+                            text: ""
+                            color: "#ff6b6b"
+                            font.pixelSize: 14
+
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -8
+                                onClicked: clipboard.deleteEntry(modelData)
+                            }
+                        }
                     }
                 }
             }
