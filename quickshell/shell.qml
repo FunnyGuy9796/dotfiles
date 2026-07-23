@@ -3,7 +3,6 @@ import Quickshell.Io
 import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import Quickshell.Widgets
-import Quickshell.Services.UPower
 import QtQuick
 import QtQuick.Controls
 
@@ -126,7 +125,7 @@ ShellRoot {
             anchors.right: parent.right
             anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            width: netIcon.width + powerIcon.width + batteryIcon.width + 66
+            width: netIcon.width + powerIcon.width + 66
             height: 30
             radius: 8
             color: "#111111"
@@ -135,56 +134,6 @@ ShellRoot {
                 id: statusRow
                 anchors.centerIn: parent
                 spacing: 16
-
-                Item {
-                    id: batteryWidget
-                    width: batteryIcon.width + batteryPct.width + 4
-                    height: batteryIcon.height
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: UPower.displayDevice.isLaptopBattery
-
-                    property real pct: UPower.displayDevice.percentage * 100
-                    property bool charging: !UPower.onBattery
-
-                    Row {
-                        anchors.fill: parent
-                        spacing: 4
-
-                        Text {
-                            id: batteryIcon
-                            anchors.verticalCenter: parent.verticalCenter
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 14
-                            text: {
-                                if (batteryWidget.charging)
-                                    return "󰂄"
-
-                                if (batteryWidget.pct >= 80)
-                                    return "󰁹"
-
-                                if (batteryWidget.pct >= 60)
-                                    return "󰂀"
-
-                                if (batteryWidget.pct >= 40)
-                                    return "󰁾"
-
-                                if (batteryWidget.pct >= 20)
-                                    return "󰁻"
-
-                                return "󰁺"
-                            }
-                            color: batteryWidget.pct <= 15 && !batteryWidget.charging ? "#ff6b6b" : "white"
-                        }
-
-                        Text {
-                            id: batteryPct
-                            anchors.verticalCenter: parent.verticalCenter
-                            font.pixelSize: 12
-                            text: Math.round(batteryWidget.pct) + "%"
-                            color: batteryWidget.pct <= 15 && !batteryWidget.charging ? "#ff6b6b" : "white"
-                        }
-                    }
-                }
 
                 Item {
                     id: netWidget
