@@ -7,6 +7,29 @@ import QtQuick
 import QtQuick.Controls
 
 ShellRoot {
+    id: shellRoot
+
+    function closePopups(keep) {
+        if (!keep.includes("netmenu"))
+            netMenu.visible = false
+
+        if (!keep.includes("wifilist"))
+            wifiList.visible = false
+
+        if (!keep.includes("btlist"))
+            btList.visible = false
+
+        if (!keep.includes("powermenu"))
+            powerMenu.visible = false
+    }
+
+    HyprlandFocusGrab {
+        id: quickSettingsGrab
+        windows: [netMenu, wifiList, btList, powerMenu]
+        active: netMenu.visible || wifiList.visible || btList.visible || powerMenu.visible
+        onCleared: shellRoot.closePopups([])
+    }
+
     PanelWindow {
         anchors {
             top: true
@@ -125,7 +148,7 @@ ShellRoot {
             anchors.right: parent.right
             anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            width: netIcon.width + powerIcon.width + 66
+            width: statusRow.width + 66
             height: 30
             radius: 8
             color: "#111111"
@@ -134,6 +157,75 @@ ShellRoot {
                 id: statusRow
                 anchors.centerIn: parent
                 spacing: 16
+
+                Item {
+                    id: sensorsWidget
+                    width: sensorsRow.width
+                    height: 20
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    property real cpuTemp: 0
+                    property int fanRpm: 0
+
+                    Row {
+                        id: sensorsRow
+                        spacing: 10
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: sensorsWidget.cpuTemp >= 80 ? "#ff6b6b" : "white"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 14
+                            text: "󰔏 " + Math.round(sensorsWidget.cpuTemp) + "°C"
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: "white"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 14
+                            text: "󰈐 " + sensorsWidget.fanRpm
+                        }
+                    }
+
+                    Process {
+                        id: cpuTempProc
+                        command: ["sensors", "-A", "-u", "coretemp-isa-0000"]
+                        running: true
+                        stdout: SplitParser {
+                            onRead: data => {
+                                const trimmed = data.trim()
+                                if (trimmed.startsWith("temp1_input:")) {
+                                    sensorsWidget.cpuTemp = parseFloat(trimmed.split(":")[1])
+                                }
+                            }
+                        }
+                    }
+
+                    Process {
+                        id: fanProc
+                        command: ["sensors", "-A", "-u", "nct6798-isa-02a0"]
+                        running: true
+                        stdout: SplitParser {
+                            onRead: data => {
+                                const trimmed = data.trim()
+                                if (trimmed.startsWith("fan1_input:")) {
+                                    sensorsWidget.fanRpm = Math.round(parseFloat(trimmed.split(":")[1]))
+                                }
+                            }
+                        }
+                    }
+
+                    Timer {
+                        interval: 3000
+                        running: true
+                        repeat: true
+                        onTriggered: {
+                            cpuTempProc.running = true
+                            fanProc.running = true
+                        }
+                    }
+                }
 
                 Item {
                     id: netWidget
@@ -396,14 +488,8 @@ ShellRoot {
         implicitHeight: 70
         title: "netmenu"
 
-        HyprlandFocusGrab {
-            id: netMenuGrab
-            windows: [netMenu]
-            active: netMenu.visible
-            onCleared: netMenu.visible = false
-        }
-
         function openMenu() {
+            shellRoot.closePopups(["netmenu"])
             wifiStateProc.running = true
             visible = true
         }
@@ -411,14 +497,8 @@ ShellRoot {
         function toggleMenu() {
             if (visible) {
                 visible = false
-                wifiList.visible = false
-                btList.visible = false
-            } else {
-                if (powerMenu.visible)
-                    powerMenu.visible = false
-
+            } else
                 openMenu()
-            }
         }
 
         IpcHandler {
@@ -584,21 +664,12 @@ ShellRoot {
         implicitHeight: 400
         title: "wifilist"
 
-        HyprlandFocusGrab {
-            id: wifiListGrab
-            windows: [wifiList]
-            active: wifiList.visible
-            onCleared: wifiList.visible = false
-        }
-
         function openMenu() {
+            shellRoot.closePopups(["wifilist", "netmenu"])
             passwordMode = false
             scanProc.lines = []
             scanProc.running = true
             visible = true
-
-            if (btList.visible)
-                btList.visible = false
         }
 
         IpcHandler {
@@ -642,6 +713,7 @@ ShellRoot {
                     if (!seen[ssid] || signal > seen[ssid].signal || active)
                         seen[ssid] = { ssid, security, signal, active }
                 }
+
                 wifiList.networks = Object.values(seen).sort((a, b) => b.signal - a.signal)
             }
         }
@@ -665,6 +737,14 @@ ShellRoot {
                 if (exitCode === 0)
                     wifiList.openMenu()
             }
+        }
+
+        Timer {
+            id: wifiGuardResetTimer
+            interval: 200
+            running: false
+            repeat: false
+            onTriggered: shellRoot.suppressNetMenuClear = false
         }
 
         Rectangle {
@@ -818,18 +898,9 @@ ShellRoot {
         implicitHeight: 400
         title: "btlist"
 
-        HyprlandFocusGrab {
-            id: btListGrab
-            windows: [btList]
-            active: btList.visible
-            onCleared: btList.visible = false
-        }
-
         function openMenu() {
+            shellRoot.closePopups(["btlist", "netmenu"])
             visible = true
-
-            if (wifiList.visible)
-                wifiList.visible = false
         }
 
         IpcHandler {
@@ -841,6 +912,14 @@ ShellRoot {
                 else
                     btList.openMenu()
             }
+        }
+
+        Timer {
+            id: btGuardResetTimer
+            interval: 200
+            running: false
+            repeat: false
+            onTriggered: shellRoot.suppressNetMenuClear = false
         }
 
         property var devices: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.devices.values : []
@@ -911,23 +990,11 @@ ShellRoot {
         implicitHeight: 130
         title: "powermenu"
 
-        HyprlandFocusGrab {
-            id: powerMenuGrab
-            windows: [powerMenu]
-            active: powerMenu.visible
-            onCleared: powerMenu.visible = false
-        }
-
         function toggleMenu() {
             if (visible)
                 visible = false
             else {
-                if (netMenu.visible) {
-                    netMenu.visible = false
-                    wifiList.visible = false
-                    btList.visible = false
-                }
-
+                shellRoot.closePopups(["powermenu"])
                 visible = true
             }
         }
