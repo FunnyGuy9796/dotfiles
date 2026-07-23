@@ -291,7 +291,7 @@ ShellRoot {
                                 else if (type === "wifi" && state === "connected") {
                                     netWidget.connectionType = "wifi"
                                     signalProc.running = true
-                                } else if (type === "wifi" && state === "disconnected") {
+                                } else if (type === "wifi" && (state === "disconnected" || state === "unavailable")) {
                                     netWidget.connectionType = "disconnected"
                                     netWidget.signalStrength = 0
                                 }
@@ -353,7 +353,12 @@ ShellRoot {
         title: "launcher"
 
         function toggle(): void {
-            launcher.visible = !launcher.visible
+            if (visible) {
+                visible = false
+            } else {
+                clipboard.visible = false
+                visible = true
+            }
         }
 
         HyprlandFocusGrab {
@@ -1261,6 +1266,139 @@ ShellRoot {
                                 onClicked: powerConfirm.visible = false
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    FloatingWindow {
+        id: clipboard
+        visible: false
+        implicitWidth: 400
+        implicitHeight: 400
+        title: "clipboard"
+
+        HyprlandFocusGrab {
+            id: clipboardGrab
+            windows: [clipboard]
+            active: clipboard.visible
+            onCleared: clipboard.visible = false
+        }
+
+        function toggle() {
+            if (visible) {
+                visible = false
+            } else {
+                launcher.visible = false
+                listProc.lines = []
+                listProc.running = true
+                visible = true
+            }
+        }
+
+        IpcHandler {
+            target: "clipboard"
+            function toggle(): void {
+                clipboard.toggle()
+            }
+        }
+
+        property var entries: []
+
+        function selectEntry(entry) {
+            copyProc.command = ["bash", "-c", "cliphist decode | wl-copy"]
+            copyProc.stdinEnabled = true
+            copyProc.running = true
+            copyProc.write(entry.raw + "\n")
+            copyProc.stdinEnabled = false
+            clipboard.visible = false
+        }
+
+        Process {
+            id: copyProc
+            running: false
+        }
+
+        Process {
+            id: listProc
+
+            property var lines: []
+
+            command: ["cliphist", "list"]
+            running: false
+            stdout: SplitParser {
+                onRead: data => listProc.lines.push(data)
+            }
+            onExited: {
+                clipboard.entries = listProc.lines.map(line => {
+                    const tabIndex = line.indexOf("\t")
+
+                    return {
+                        id: line.substring(0, tabIndex),
+                        preview: line.substring(tabIndex + 1),
+                        raw: line
+                    }
+                })
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#111111"
+            radius: 8
+
+            ListView {
+                id: clipList
+                anchors.fill: parent
+                anchors.margins: 10
+                clip: true
+                model: clipboard.entries
+                currentIndex: 0
+                focus: clipboard.visible
+
+                highlight: Rectangle { color: "#3b4261"; radius: 4 }
+                highlightMoveDuration: 100
+
+                Keys.onPressed: event => {
+                    if (event.key === Qt.Key_Down) {
+                        currentIndex = Math.min(currentIndex + 1, count - 1)
+                        event.accepted = true
+                    } else if (event.key === Qt.Key_Up) {
+                        currentIndex = Math.max(currentIndex - 1, 0)
+                        event.accepted = true
+                    } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                        const entry = clipboard.entries[currentIndex]
+
+                        if (entry)
+                            clipboard.selectEntry(entry)
+
+                        event.accepted = true
+                    } else if (event.key === Qt.Key_Escape) {
+                        clipboard.visible = false
+                        event.accepted = true
+                    }
+                }
+
+                delegate: Rectangle {
+                    width: clipList.width
+                    height: 36
+                    color: "transparent"
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.leftMargin: 10
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        elide: Text.ElideRight
+                        text: modelData.preview
+                        color: "white"
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: clipboard.selectEntry(modelData)
                     }
                 }
             }

@@ -1,6 +1,7 @@
 #!/bin/bash
 # ~/dotfiles/setup.sh
-# Bootstraps a minimal Fedora install into the full Hyprland + Quickshell rice.
+# Bootstraps a minimal Fedora install into a bare Hyprland + Quickshell setup.
+# No display manager: Hyprland is launched from a TTY login shell.
 
 set -e
 
@@ -28,21 +29,26 @@ echo "== Installing Hyprland core =="
 sudo dnf install -y hyprland
 sudo dnf install -y xdg-desktop-portal-hyprland
 
-echo "== Installing remaining packages =="
+echo "== Installing seat management =="
+# Without a display manager, Hyprland needs seatd to get device/session
+# access when launched directly from a TTY login shell.
+sudo dnf install -y seatd
+sudo systemctl enable --now seatd
+sudo usermod -aG seat "$USER" || true
+
+echo "== Installing core packages =="
 sudo dnf install -y \
     swaybg hypridle hyprlock \
     quickshell \
     qt6-qtsvg qt6-qtimageformats qt6-qtmultimedia qt6-qt5compat \
-    qt6ct qt5ct kvantum \
-    plasma-integration plasma-breeze plasma-breeze-qt6 qqc2-breeze-style breeze-icon-theme breeze-gtk \
-    sddm sddm-breeze \
     pipewire-utils \
-    NetworkManager-wifi bluez
+    NetworkManager-wifi bluez \
+    lm_sensors \
+    grim slurp wl-clipboard cliphist
 
 echo "== Installing JetBrainsMono Nerd Font =="
 # Not installed via dnf: nerd-fonts package availability varies between
-# Fedora editions (e.g. present on Workstation, absent on this Server repo
-# set), so a direct download is the portable path across editions.
+# Fedora editions, so a direct download is the portable path across editions.
 if [ ! -d ~/.local/share/fonts/JetBrainsMonoNerd ]; then
     mkdir -p ~/.local/share/fonts
     cd ~/.local/share/fonts
@@ -56,15 +62,10 @@ else
 fi
 
 echo "== Enabling system services =="
-sudo systemctl enable sddm
 sudo systemctl enable bluetooth
 
-echo "== Setting SDDM theme =="
-sudo mkdir -p /etc/sddm.conf.d
-sudo tee /etc/sddm.conf.d/theme.conf > /dev/null <<EOF
-[Theme]
-Current=breeze
-EOF
+# No display manager: boot straight to a text login (skip if already set).
+sudo systemctl set-default multi-user.target
 
 echo "== Linking configs =="
 mkdir -p ~/.config/hypr ~/.config/quickshell
@@ -73,10 +74,27 @@ ln -sf ~/dotfiles/hypr/hyprlock.conf ~/.config/hypr/hyprlock.conf
 ln -sf ~/dotfiles/hypr/hypridle.conf ~/.config/hypr/hypridle.conf
 ln -sf ~/dotfiles/quickshell/shell.qml ~/.config/quickshell/shell.qml
 
+echo "== Setting up TTY auto-start =="
+# Launch Hyprland automatically on login at tty1, but only if not already
+# in a graphical session (avoids relaunching if you nest shells, ssh in, etc).
+PROFILE_SNIPPET='
+if [ -z "$WAYLAND_DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    exec Hyprland
+fi
+'
+if ! grep -q "exec Hyprland" ~/.bash_profile 2>/dev/null; then
+    echo "$PROFILE_SNIPPET" >> ~/.bash_profile
+    echo "Added Hyprland auto-start to ~/.bash_profile"
+else
+    echo "~/.bash_profile already configured, skipping."
+fi
+
 echo "== Done =="
-echo "Reboot now. At the SDDM login screen, select the Hyprland session."
+echo "Reboot now. Log in at the TTY1 text prompt and Hyprland will start automatically."
 echo ""
 echo "Known machine-specific things to check after first boot:"
 echo "  - Wifi interface name is auto-detected at runtime, no action needed"
 echo "  - Confirm 'wpctl status' shows your audio sink correctly"
 echo "  - Confirm Nerd Font glyphs render (fc-list | grep -i \"JetBrainsMono Nerd\")"
+echo "  - You were added to the 'seat' group; if permissions errors occur on first"
+echo "    launch, log out fully and back in (group membership needs a fresh session)"
