@@ -28,7 +28,6 @@ sudo dnf install -y \
     quickshell \
     qt6-qtsvg qt6-qtimageformats qt6-qtmultimedia qt6-qt5compat \
     jetbrainsmono-nerd-fonts \
-    fuzzel \
     qt6ct qt5ct kvantum \
     plasma-integration plasma-breeze plasma-breeze-qt6 qqc2-breeze-style breeze-icon-theme breeze-gtk \
     sddm sddm-breeze \
