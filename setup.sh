@@ -44,8 +44,8 @@ sudo dnf install -y \
     pipewire-utils \
     NetworkManager-wifi bluez \
     lm_sensors \
-    grim slurp wl-clipboard cliphist \
-    kitty firefox
+    grim slurp wl-clipboard cliphist glib2 \
+    nano kitty firefox
 
 echo "== Installing JetBrainsMono Nerd Font =="
 # Not installed via dnf: nerd-fonts package availability varies between
@@ -76,6 +76,26 @@ ln -sf ~/dotfiles/hypr/hypridle.conf ~/.config/hypr/hypridle.conf
 ln -sf ~/dotfiles/hypr/wallpaper.jpg ~/.config/hypr/wallpaper.jpg
 ln -sf ~/dotfiles/quickshell/shell.qml ~/.config/quickshell/shell.qml
 
+echo "== Setting dark theme defaults =="
+# GTK env var covers most GTK3/GTK4 apps immediately.
+if ! grep -q "GTK_THEME" ~/dotfiles/hypr/hyprland.conf 2>/dev/null; then
+    echo "NOTE: add 'env = GTK_THEME,Adwaita:dark' to hyprland.conf manually if not already present."
+fi
+
+# Freedesktop color-scheme preference, checked by many GTK4/Flatpak apps
+# via the desktop portal rather than the env var.
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null || true
+
+# Explicit GTK settings files as a fallback for apps that check these
+# directly instead of the env var or portal setting.
+mkdir -p ~/.config/gtk-3.0 ~/.config/gtk-4.0
+cat > ~/.config/gtk-3.0/settings.ini << 'GTKEOF'
+[Settings]
+gtk-application-prefer-dark-theme=true
+GTKEOF
+cp ~/.config/gtk-3.0/settings.ini ~/.config/gtk-4.0/settings.ini
+
+
 echo "== Setting up TTY auto-start =="
 # Launch Hyprland automatically on login at tty1, but only if not already
 # in a graphical session (avoids relaunching if you nest shells, ssh in, etc).
@@ -100,3 +120,4 @@ echo "  - Confirm 'wpctl status' shows your audio sink correctly"
 echo "  - Confirm Nerd Font glyphs render (fc-list | grep -i \"JetBrainsMono Nerd\")"
 echo "  - You were added to the 'seat' group; if permissions errors occur on first"
 echo "    launch, log out fully and back in (group membership needs a fresh session)"
+echo "  - Confirm hyprland.conf has: env = GTK_THEME,Adwaita:dark"

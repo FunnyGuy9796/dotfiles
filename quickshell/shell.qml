@@ -169,7 +169,7 @@ ShellRoot {
 
                     Row {
                         id: sensorsRow
-                        spacing: 10
+                        spacing: 16
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
