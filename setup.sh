@@ -44,7 +44,8 @@ sudo dnf install -y \
     pipewire-utils \
     NetworkManager-wifi bluez \
     lm_sensors \
-    grim slurp wl-clipboard cliphist
+    grim slurp wl-clipboard cliphist \
+    kitty firefox
 
 echo "== Installing JetBrainsMono Nerd Font =="
 # Not installed via dnf: nerd-fonts package availability varies between
@@ -72,6 +73,7 @@ mkdir -p ~/.config/hypr ~/.config/quickshell
 ln -sf ~/dotfiles/hypr/hyprland.conf ~/.config/hypr/hyprland.conf
 ln -sf ~/dotfiles/hypr/hyprlock.conf ~/.config/hypr/hyprlock.conf
 ln -sf ~/dotfiles/hypr/hypridle.conf ~/.config/hypr/hypridle.conf
+ln -sf ~/dotfiles/hypr/wallpaper.jpg ~/.config/hypr/wallpaper.jpg
 ln -sf ~/dotfiles/quickshell/shell.qml ~/.config/quickshell/shell.qml
 
 echo "== Setting up TTY auto-start =="
@@ -79,10 +81,10 @@ echo "== Setting up TTY auto-start =="
 # in a graphical session (avoids relaunching if you nest shells, ssh in, etc).
 PROFILE_SNIPPET='
 if [ -z "$WAYLAND_DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-    exec Hyprland
+    exec start-hyprland
 fi
 '
-if ! grep -q "exec Hyprland" ~/.bash_profile 2>/dev/null; then
+if ! grep -q "exec start-hyprland" ~/.bash_profile 2>/dev/null; then
     echo "$PROFILE_SNIPPET" >> ~/.bash_profile
     echo "Added Hyprland auto-start to ~/.bash_profile"
 else
